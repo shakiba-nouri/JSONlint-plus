@@ -1,0 +1,18 @@
+JSON        = WS, Value, WS, EOF ;
+
+Value       = Object
+            | Array
+            | STRING
+            | NUMBER
+            | "true"
+            | "false"
+            | "null" ;
+
+Object      = "{", WS, [ Members ], WS, "}" ;
+Members     = Pair, { WS, ",", WS, Pair } ;
+Pair        = STRING, WS, ":", WS, Value ;
+
+Array       = "[", WS, [ Elements ], WS, "]" ;
+Elements    = Value, { WS, ",", WS, Value } ;
+
+WS          = { " " | "\t" | "\n" | "\r" } ;

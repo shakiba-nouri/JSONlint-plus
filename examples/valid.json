@@ -1,0 +1,8 @@
+{
+  "name": "JSONLint+",
+  "version": "1.0.0",
+  "enabled": true,
+  "port": 8080,
+  "tags": ["json", "compiler"],
+  "metadata": null
+}
