@@ -50,6 +50,11 @@ class Lexer:
             return None
         return self.source[self.position]
 
+    @staticmethod
+    def _is_word_char(char: str) -> bool:
+        """Return True for characters that may continue a keyword."""
+        return char.isalnum() or char == "_"
+
     def _advance(self) -> str:
         char = self.source[self.position]
         self.position += 1
@@ -215,7 +220,9 @@ class Lexer:
             if char.isalpha():
                 start = self.position
 
-                while self._current() is not None and self._current().isalpha():
+                while self._current() is not None and self._is_word_char(
+                    self._current()
+                ):
                     self._advance()
 
                 word = self.source[start:self.position]
