@@ -1,0 +1,7 @@
+node_modules/**
+web/**
+tests/**
+.pytest_cache/**
+.venv/**
+**/__pycache__/**
+.git/**
