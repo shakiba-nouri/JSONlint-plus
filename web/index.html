@@ -68,6 +68,7 @@
   <section class="card results-card">
     <div class="tabs" id="tabs">
       <button class="tab active" data-tab="tokens">Tokens</button>
+      <button class="tab" data-tab="ast">AST tree</button>
       <button class="tab" data-tab="diagnostics">Diagnostics <span class="badge-count" id="diag-count">0</span></button>
       <button class="tab" data-tab="output">Before / After</button>
       <button class="tab" data-tab="raw">Raw report</button>
@@ -82,6 +83,14 @@
           <tr><td colspan="5" class="empty">No tokens yet.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="tab-panel ast-panel" data-panel="ast">
+      <div class="ast-header">
+        <div><h3>Abstract syntax tree</h3><p>Explore the structure of your JSON. Select a node to locate it in the input.</p></div>
+        <div class="ast-controls"><button id="ast-expand" class="ghost">Expand all</button><button id="ast-collapse" class="ghost">Collapse all</button></div>
+      </div>
+      <div id="ast-tree" class="ast-tree" aria-live="polite"><p class="empty">Run a valid JSON document to view its tree.</p></div>
     </div>
 
     <div class="tab-panel" data-panel="diagnostics">

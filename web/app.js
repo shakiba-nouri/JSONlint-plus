@@ -46,6 +46,7 @@ const verdict = $("#verdict");
 const diagnosticsBox = $("#diagnostics");
 const diagCount = $("#diag-count");
 const tokensBody = $("#tokens-body");
+const astTree = $("#ast-tree");
 const diffBox = $("#diff");
 const rawBox = $("#raw");
 const runBtn = $("#run");
@@ -64,7 +65,16 @@ function setEditor(text) {
   updateStat();
 }
 
-editor.addEventListener("input", updateStat);
+editor.addEventListener("input", () => {
+  updateStat();
+  if (lastReport && editor.value !== lastReport.source) {
+    astTree.replaceChildren();
+    const message = document.createElement("p");
+    message.className = "empty";
+    message.textContent = "Input changed. Run JSONLint+ again to update the tree.";
+    astTree.appendChild(message);
+  }
+});
 editor.addEventListener("keydown", (event) => {
   if (event.key === "Tab") {
     event.preventDefault();
@@ -134,6 +144,7 @@ function render(report) {
   renderSummary(report);
   renderVerdict(report);
   renderTokens(report);
+  renderAst(report);
   renderDiagnostics(report);
   renderOutput(report);
   rawBox.textContent = JSON.stringify(report, null, 2);
@@ -225,6 +236,102 @@ function renderTokens(report) {
     tokensBody.appendChild(tr);
   });
 }
+
+function renderAst(report) {
+  astTree.replaceChildren();
+  const stage = (report.stages ?? []).find((item) => item.id === "parser");
+  if (!stage || stage.status !== "ok" || !stage.ast) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "The tree is available after the JSON is valid. Check Diagnostics and run again.";
+    astTree.appendChild(empty);
+    return;
+  }
+
+  function nodeView(node, depth = 0) {
+    const branch = document.createElement("li");
+    const children = node.children ?? [];
+    const row = document.createElement("div");
+    row.className = "ast-row";
+    if (children.length) {
+      const toggle = document.createElement("button");
+      toggle.className = "ast-toggle";
+      toggle.type = "button";
+      toggle.textContent = "\u25be";
+      toggle.setAttribute("aria-label", "Collapse " + node.type);
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.addEventListener("click", () => setExpanded(branch, toggle.getAttribute("aria-expanded") !== "true"));
+      row.appendChild(toggle);
+    } else {
+      const spacer = document.createElement("span");
+      spacer.className = "ast-toggle-spacer";
+      row.appendChild(spacer);
+    }
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "ast-node";
+    const type = document.createElement("span");
+    type.className = "ast-type ast-type-" + node.type;
+    type.textContent = node.type;
+    select.appendChild(type);
+    if (node.type === "property") {
+      const key = document.createElement("span");
+      key.className = "ast-key";
+      key.textContent = JSON.stringify(node.key);
+      select.appendChild(key);
+    } else if (Object.hasOwn(node, "value")) {
+      const value = document.createElement("span");
+      value.className = "ast-value";
+      value.textContent = JSON.stringify(node.value);
+      select.appendChild(value);
+    } else if (node.type === "object" || node.type === "array") {
+      const count = document.createElement("span");
+      count.className = "ast-count";
+      count.textContent = children.length + (children.length === 1 ? " child" : " children");
+      select.appendChild(count);
+    }
+    const location = document.createElement("span");
+    location.className = "ast-location";
+    location.textContent = "L" + node.line + ":" + node.column;
+    select.appendChild(location);
+    select.title = "Go to line " + node.line + ", column " + node.column;
+    select.addEventListener("click", () => {
+      const lines = editor.value.split("\n");
+      const before = lines.slice(0, node.line - 1).reduce((total, line) => total + line.length + 1, 0);
+      const offset = before + Array.from(lines[node.line - 1] ?? "").slice(0, node.column - 1).join("").length;
+      editor.focus();
+      editor.setSelectionRange(offset, offset);
+      editor.scrollTop = Math.max(0, (node.line - 2) * parseFloat(getComputedStyle(editor).lineHeight));
+    });
+    row.appendChild(select);
+    branch.appendChild(row);
+    if (children.length) {
+      const list = document.createElement("ul");
+      list.className = "ast-children";
+      for (const child of children) list.appendChild(nodeView(child, depth + 1));
+      branch.appendChild(list);
+    }
+    return branch;
+  }
+
+  const root = document.createElement("ul");
+  root.className = "ast-root";
+  root.appendChild(nodeView(stage.ast));
+  astTree.appendChild(root);
+}
+
+function setExpanded(branch, expanded) {
+  const toggle = branch.querySelector(":scope > .ast-row > .ast-toggle");
+  const children = branch.querySelector(":scope > .ast-children");
+  if (!toggle || !children) return;
+  children.hidden = !expanded;
+  toggle.textContent = expanded ? "\u25be" : "\u25b8";
+  toggle.setAttribute("aria-expanded", String(expanded));
+  toggle.setAttribute("aria-label", (expanded ? "Collapse " : "Expand ") + branch.querySelector(":scope > .ast-row .ast-type").textContent);
+}
+
+$("#ast-expand").addEventListener("click", () => astTree.querySelectorAll("li").forEach((branch) => setExpanded(branch, true)));
+$("#ast-collapse").addEventListener("click", () => astTree.querySelectorAll("li").forEach((branch) => setExpanded(branch, false)));
 
 function renderDiagnostics(report) {
   const list = report.diagnostics ?? [];

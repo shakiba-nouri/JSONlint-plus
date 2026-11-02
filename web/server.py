@@ -143,8 +143,11 @@ def run_parser(context: dict[str, Any]) -> dict[str, Any]:
                 result = func(source)
             except Exception as exc:  # noqa: BLE001 - report any stage failure
                 return {"status": "error", "error": error_info(exc)}
+            from jsonlint_plus.ast import inspect
+
+            ast = inspect(source)["ast"]
             context["parse_result"] = result
-            return {"status": "ok", "result": to_jsonable(result)}
+            return {"status": "ok", "result": to_jsonable(result), "ast": ast}
 
     parser_cls = getattr(module, "Parser", None)
     if parser_cls is not None:

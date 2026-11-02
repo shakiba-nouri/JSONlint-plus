@@ -254,3 +254,34 @@ pre.raw {
   animation: spin .7s linear infinite; vertical-align: -2px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* ---------- AST explorer ---------- */
+.ast-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 20px; padding: 4px 0 14px; border-bottom: 1px solid var(--border);
+}
+.ast-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.ast-header p { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+.ast-controls { display: flex; gap: 6px; flex: none; }
+.ast-tree { overflow: auto; max-height: 560px; padding: 12px 0 4px; }
+.ast-root, .ast-children { list-style: none; padding: 0; margin: 0; }
+.ast-root { min-width: max-content; }
+.ast-children { margin-left: 11px; padding-left: 17px; border-left: 1px solid #3d4855; }
+.ast-children[hidden] { display: none; }
+.ast-row { display: flex; align-items: center; min-height: 34px; }
+.ast-toggle, .ast-toggle-spacer { width: 23px; height: 28px; flex: none; }
+.ast-toggle { background: transparent; border: 0; color: var(--muted); padding: 0; font-size: 14px; }
+.ast-toggle:hover { color: var(--text); }
+.ast-node { display: flex; align-items: center; gap: 11px; text-align: left; padding: 5px 9px;
+  background: transparent; border: 1px solid transparent; border-radius: 5px; color: var(--text);
+  font: 12.5px var(--mono); min-height: 31px; }
+.ast-node:hover { background: var(--bg-soft); border-color: var(--border); }
+.ast-node:focus-visible, .ast-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ast-type { color: var(--accent); min-width: 64px; }
+.ast-type-property { color: #c8a5ee; }
+.ast-type-string { color: #a5d6ff; }
+.ast-type-number { color: #d2a8ff; }
+.ast-type-true, .ast-type-false, .ast-type-null { color: #ffa978; }
+.ast-value, .ast-key { color: var(--text); white-space: pre; }
+.ast-count, .ast-location { color: var(--muted); font-size: 11px; }
+.ast-location { margin-left: 5px; }
+@media (max-width: 600px) { .ast-header { flex-direction: column; gap: 10px; } }

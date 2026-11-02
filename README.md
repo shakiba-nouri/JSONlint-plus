@@ -42,6 +42,10 @@ Run **Format Document With...** and select **JSONLint+**. Set it as the default 
 4. For valid text, `ast.py` builds the AST and token views. If configured, `schema.py` uses `jsonschema` to check values against a local JSON Schema.
 5. `formatter.py` validates input and adds whitespace around the original token spellings. The extension returns the result as a VS Code formatting edit.
 
+## Browser AST explorer
+
+Run `python web/server.py` and open http://127.0.0.1:8765. Enter valid JSON, click **Run JSONLint+**, then open **AST tree**. Expand or collapse branches and select a node to jump to its source location. Invalid JSON must be fixed before an AST can be displayed. Run analysis again after changing the input.
+
 ## JSON Schema
 
 Set `jsonlintPlus.schemaPath` to an absolute path or a path relative to the JSON file's workspace folder, for example `examples/person.schema.json`. The selected schema applies to JSON documents in that workspace. Leave it empty to disable schema validation. Syntax must be valid before schema validation runs. Schema diagnostics point to the relevant value or containing object; library installation, invalid schema and reference errors are reported separately.
