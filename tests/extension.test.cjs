@@ -33,7 +33,9 @@ test('extension publishes diagnostics, quick fixes and AST for a JSON document',
   assert.equal(reported.length,1);
   assert.equal(reported[0].length,1);
   assert.match(reported[0][0].message,/Expected ':'/);
-  const actions=provider.provideCodeActions(doc,null,{diagnostics:reported[0]});
+  const copied = reported[0].map(d => ({source:d.source, message:d.message, range:d.range}));
+  const actions=provider.provideCodeActions(doc,null,{diagnostics:copied});
+  assert.equal(actions[0].title, 'JSONLint+: Insert missing colon');
   assert.equal(actions[0].edit.replacement.text,': ');
   assert.equal(actions[0].edit.replacement.range.start.character,7);
   assert.ok(commands['jsonlintPlus.showAst']);

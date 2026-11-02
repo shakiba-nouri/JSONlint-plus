@@ -83,8 +83,6 @@ function activate(context) {
           const end = new vscode.Position(line, Math.min(character + 1, lineText.length));
           const diagnostic = new vscode.Diagnostic(new vscode.Range(start, end), item.message, vscode.DiagnosticSeverity.Error);
           diagnostic.source = 'JSONLint+';
-          diagnostic.documentVersion = version;
-          if (item.fix) diagnostic.fix = item.fix;
           return diagnostic;
         });
         reportedFailure = false;
@@ -141,18 +139,31 @@ function activate(context) {
   }));
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider({ language: 'json' }, {
     provideCodeActions(document, range, context) {
-      return context.diagnostics.filter(d => d.source === 'JSONLint+' && d.fix && d.documentVersion === document.version).map(d => {
-        const fix = d.fix;
-        // Python offsets count Unicode code points; VS Code offsets count UTF-16 units.
-        const chars = Array.from(document.getText());
+      // VS Code may recreate Diagnostic objects before invoking this provider,
+      // so custom properties attached to a Diagnostic cannot carry the edit.
+      const cached = results.get(document.uri.toString());
+      if (!cached || cached.version !== document.version) return [];
+      const chars = Array.from(document.getText());
+      const actions = [];
+      for (const diagnostic of context.diagnostics) {
+        if (diagnostic.source !== 'JSONLint+') continue;
+        const item = cached.result.diagnostics.find(entry => {
+          if (!entry.fix || entry.message !== diagnostic.message || entry.line - 1 !== diagnostic.range.start.line) return false;
+          const lineText = document.lineAt(entry.line - 1).text;
+          return Array.from(lineText).slice(0, entry.column - 1).join('').length === diagnostic.range.start.character;
+        });
+        if (!item) continue;
+        const fix = item.fix;
+        // Python offsets count Unicode code points; VS Code counts UTF-16 units.
         const start = chars.slice(0, fix.start).join('').length;
         const end = chars.slice(0, fix.end).join('').length;
-        const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
+        const action = new vscode.CodeAction('JSONLint+: ' + fix.title, vscode.CodeActionKind.QuickFix);
         action.edit = new vscode.WorkspaceEdit();
         action.edit.replace(document.uri, new vscode.Range(document.positionAt(start), document.positionAt(end)), fix.text);
-        action.diagnostics = [d]; action.isPreferred = true;
-        return action;
-      });
+        action.diagnostics = [diagnostic]; action.isPreferred = true;
+        actions.push(action);
+      }
+      return actions;
     }
   }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }));
   context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(schedule),

@@ -15,7 +15,7 @@ exports.run = async function () {
   }
   assert.ok(diagnostics.some(d=>d.message.includes("Expected ':'")), 'diagnostic is published');
   const actions = await vscode.commands.executeCommand('vscode.executeCodeActionProvider', doc.uri, diagnostics[0].range, 'quickfix');
-  const fix = actions.find(a=>a.title==='Insert missing colon');
+  const fix = actions.find(a=>a.title==='JSONLint+: Insert missing colon');
   assert.ok(fix && fix.edit, 'quick fix available');
   assert.ok(await vscode.workspace.applyEdit(fix.edit));
   for(let i=0;i<100;i++) {
