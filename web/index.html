@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JSONLint+ Visual Debugger</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">{&nbsp;}</span>
+      <div>
+        <h1>JSONLint+ <span>Visual Debugger</span></h1>
+        <p>Paste invalid JSON, run the real tool, and watch every stage happen.</p>
+      </div>
+    </div>
+    <div class="env" id="env">
+      <span class="chip" id="chip-python">python: &hellip;</span>
+      <span class="chip" id="chip-version">jsonlint-plus: &hellip;</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ------------------------- INPUT ------------------------- -->
+    <section class="card editor-card">
+      <div class="card-head">
+        <h2>Input</h2>
+        <div class="samples">
+          <button class="ghost" data-sample="valid">valid</button>
+          <button class="ghost" data-sample="trailingComma">trailing comma</button>
+          <button class="ghost" data-sample="unterminated">unterminated string</button>
+          <button class="ghost" data-sample="badNumber">bad number</button>
+          <button class="ghost" data-sample="badChar">bad character</button>
+        </div>
+      </div>
+
+      <textarea id="editor" spellcheck="false" autocomplete="off"
+        placeholder='{ "name": "JSONLint+", "port": 8080, }'></textarea>
+
+      <div class="card-foot">
+        <button id="run" class="primary">&#9654; Run JSONLint+</button>
+        <span class="hint">Ctrl + Enter</span>
+        <span class="spacer"></span>
+        <span class="stat" id="stat">0 lines &middot; 0 chars</span>
+        <button id="clear" class="ghost">clear</button>
+      </div>
+    </section>
+
+    <!-- ------------------------- PIPELINE ------------------------- -->
+    <section class="card pipeline-card">
+      <div class="card-head">
+        <h2>What happens</h2>
+        <span class="stat" id="runtime">&mdash;</span>
+      </div>
+      <div class="summary" id="summary">
+        <span class="muted">Run the tool to see the pipeline.</span>
+      </div>
+      <ol class="timeline" id="timeline"></ol>
+      <div class="verdict" id="verdict"></div>
+    </section>
+  </main>
+
+  <!-- ------------------------- RESULTS ------------------------- -->
+  <section class="card results-card">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="tokens">Tokens</button>
+      <button class="tab" data-tab="diagnostics">Diagnostics <span class="badge-count" id="diag-count">0</span></button>
+      <button class="tab" data-tab="output">Before / After</button>
+      <button class="tab" data-tab="raw">Raw report</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="tokens">
+      <table class="tokens" id="tokens-table">
+        <thead>
+          <tr><th>#</th><th>Type</th><th>Value</th><th>Line</th><th>Col</th></tr>
+        </thead>
+        <tbody id="tokens-body">
+          <tr><td colspan="5" class="empty">No tokens yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tab-panel" data-panel="diagnostics">
+      <div id="diagnostics" class="diagnostics">
+        <p class="empty">No diagnostics yet.</p>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="output">
+      <div class="diff" id="diff">
+        <p class="empty">Run the tool to see the output.</p>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="raw">
+      <pre class="raw" id="raw">Report will appear here.</pre>
+    </div>
+  </section>
+
+  <footer class="foot">
+    Served by <code>web/server.py</code> &middot; runs your actual
+    <code>jsonlint_plus</code> stages &middot; edit <code>PIPELINE</code> to add stages.
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
