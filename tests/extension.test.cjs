@@ -5,7 +5,7 @@ const path = require('node:path');
 
 test('extension publishes diagnostics, quick fixes and AST for a JSON document', async () => {
   const callbacks = {}, commands = {}, reported = [];
-  let provider, opened;
+  let provider, formatter, opened;
   let source = '{"age" 2}';
   const doc = { languageId: 'json', version: 1, isClosed: false, uri: { toString: () => 'file:///sample.json' }, lineCount: 1,
     getText: () => source, lineAt: () => ({ text: source }), positionAt: n => new Position(0,n) };
@@ -15,10 +15,10 @@ test('extension publishes diagnostics, quick fixes and AST for a JSON document',
   class WorkspaceEdit { replace(uri,range,text) { this.replacement={uri,range,text}; } }
   class CodeAction { constructor(title,kind) { this.title=title; this.kind=kind; } }
   const collection = { set: (uri,ds) => reported.push(ds), delete: () => {}, dispose: () => {} };
-  const vscode = { Position, Range, Diagnostic, WorkspaceEdit, CodeAction, DiagnosticSeverity: {Error:0}, CodeActionKind:{QuickFix:'quickfix'}, ViewColumn:{Beside:2},
+  const vscode = { Position, Range, Diagnostic, WorkspaceEdit, CodeAction, TextEdit:{replace:(range,text)=>({range,text})}, EndOfLine:{CRLF:2}, DiagnosticSeverity: {Error:0}, CodeActionKind:{QuickFix:'quickfix'}, ViewColumn:{Beside:2},
     Uri:{file: fsPath => ({fsPath})},
     window:{activeTextEditor:{document:doc}, createOutputChannel:()=>({appendLine:()=>{},dispose:()=>{}}), showErrorMessage:msg=>{throw Error(msg)}, showInformationMessage:()=>{}, showTextDocument:()=>Promise.resolve()},
-    languages:{createDiagnosticCollection:()=>collection, registerCodeActionsProvider:(selector,p)=>{provider=p;return {dispose(){}};}},
+    languages:{registerDocumentFormattingEditProvider:(selector,p)=>{formatter=p;return {dispose(){}};}, createDiagnosticCollection:()=>collection, registerCodeActionsProvider:(selector,p)=>{provider=p;return {dispose(){}};}},
     commands:{registerCommand:(name,fn)=>{commands[name]=fn;return {dispose(){}};}},
     workspace:{textDocuments:[doc], getConfiguration:()=>({get:key=>key==='pythonPath'?process.env.JSONLINT_TEST_PYTHON:''}),
       onDidOpenTextDocument:fn=>(callbacks.open=fn,{dispose(){}}), onDidChangeTextDocument:fn=>(callbacks.change=fn,{dispose(){}}), onDidCloseTextDocument:fn=>({dispose(){}}), onDidChangeConfiguration:fn=>({dispose(){}}),
@@ -46,5 +46,7 @@ test('extension publishes diagnostics, quick fixes and AST for a JSON document',
   assert.equal(JSON.parse(opened.content).type, 'object');
   commands['jsonlintPlus.showTokens']();
   assert.equal(JSON.parse(opened.content)[0].type, 'LBRACE');
+  const edits = await formatter.provideDocumentFormattingEdits(doc, {insertSpaces:true,tabSize:2}, {isCancellationRequested:false,onCancellationRequested:()=>({dispose(){}})});
+  assert.equal(edits[0].text, '{\n  "age": 2\n}');
   context.subscriptions.forEach(sub=>sub.dispose?.());
 });

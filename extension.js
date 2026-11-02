@@ -106,6 +106,39 @@ function activate(context) {
   }
   context.subscriptions.push(vscode.commands.registerCommand('jsonlintPlus.showTokens', () => showAnalysis('tokens')),
     vscode.commands.registerCommand('jsonlintPlus.showAst', () => showAnalysis('ast')));
+  context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider({ language: 'json' }, {
+    provideDocumentFormattingEdits(document, options, cancellation) {
+      const version = document.version;
+      const source = document.getText();
+      const python = vscode.workspace.getConfiguration('jsonlintPlus', document.uri).get('pythonPath');
+      const indent = options.insertSpaces ? ' '.repeat(Math.max(1, Math.min(options.tabSize || 2, 16))) : '\t';
+      const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+      return new Promise(resolve => {
+        const child = spawn(python, ['-m', 'jsonlint_plus.vscode_bridge'], {
+          cwd: context.extensionPath,
+          env: { ...process.env, PYTHONPATH: path.join(context.extensionPath, 'src') },
+          windowsHide: true
+        });
+        let stdout = '', stderr = '', done = false;
+        const finish = value => { if (!done) { done = true; subscription.dispose(); resolve(value); } };
+        const subscription = cancellation.onCancellationRequested(() => { child.kill(); finish([]); });
+        child.stdout.setEncoding('utf8'); child.stdout.on('data', data => stdout += data);
+        child.stderr.setEncoding('utf8'); child.stderr.on('data', data => stderr += data);
+        child.on('error', err => { output.appendLine(err.message); vscode.window.showErrorMessage('JSONLint+ formatting could not start Python.'); finish([]); });
+        child.on('close', code => {
+          if (done || cancellation.isCancellationRequested || document.isClosed || document.version !== version) { finish([]); return; }
+          if (code !== 0) { output.appendLine(stderr); vscode.window.showErrorMessage('JSONLint+ formatting failed. See the JSONLint+ output channel.'); finish([]); return; }
+          try {
+            const result = JSON.parse(stdout);
+            if (result.error) { vscode.window.showInformationMessage('JSONLint+: Fix syntax errors before formatting.'); finish([]); return; }
+            finish([vscode.TextEdit.replace(new vscode.Range(document.positionAt(0), document.positionAt(source.length)), result.text)]);
+          } catch (err) { output.appendLine(String(err)); vscode.window.showErrorMessage('JSONLint+ returned an invalid formatting response.'); finish([]); }
+        });
+        child.stdin.on('error', () => {});
+        child.stdin.end(JSON.stringify({action: 'format', text: source, indent, eol}));
+      });
+    }
+  }));
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider({ language: 'json' }, {
     provideCodeActions(document, range, context) {
       return context.diagnostics.filter(d => d.source === 'JSONLint+' && d.fix && d.documentVersion === document.version).map(d => {
