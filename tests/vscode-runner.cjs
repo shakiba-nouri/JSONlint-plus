@@ -33,4 +33,3 @@ exports.run = async function () {
   await sleep(200);
   assert.match(doc.getText(), /\r?\n\s+"a": 1\r?\n/, 'formatting provider runs');
 };
-
