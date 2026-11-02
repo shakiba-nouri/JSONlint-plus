@@ -42,6 +42,10 @@ Run **Format Document With...** and select **JSONLint+**. Set it as the default 
 4. For valid text, `ast.py` builds the AST and token views. If configured, `schema.py` uses `jsonschema` to check values against a local JSON Schema.
 5. `formatter.py` validates input and adds whitespace around the original token spellings. The extension returns the result as a VS Code formatting edit.
 
+## Browser suggestions
+
+Run `python web/server.py`, open http://127.0.0.1:8765 and analyze JSON. The **Diagnostics** tab lists errors and, where available, an **Apply fix** button. Fixes are applied only when selected, then the input is analyzed again. **Before / After** compares the latest applied fix. If the input changes after analysis, run it again before applying a suggestion. Not every error has a fix.
+
 ## Browser AST explorer
 
 Run `python web/server.py` and open http://127.0.0.1:8765. Enter valid JSON, click **Run JSONLint+**, then open **AST tree**. Expand or collapse branches and select a node to jump to its source location. Invalid JSON must be fixed before an AST can be displayed. Run analysis again after changing the input.

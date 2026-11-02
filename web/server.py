@@ -166,56 +166,21 @@ def run_parser(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_repair(context: dict[str, Any]) -> dict[str, Any]:
-    """Run the repair stage when jsonlint_plus.repair exists."""
-    module = import_optional("jsonlint_plus.repair")
-    if module is None:
-        return {
-            "status": "missing",
-            "message": "Add src/jsonlint_plus/repair.py to enable repair suggestions.",
-        }
+    """Report suggestions from the same diagnostic engine as the extension."""
+    from jsonlint_plus.diagnostics import analyze as analyze_diagnostics
 
-    source = context["source"]
-    for name in ("repair", "repair_source", "suggest"):
-        func = getattr(module, name, None)
-        if not callable(func):
-            continue
-        try:
-            result = func(source)
-        except Exception as exc:  # noqa: BLE001
-            return {"status": "error", "error": error_info(exc)}
-
-        repaired, edits = normalize_repair(result, source)
-        context["repaired"] = repaired
-        return {"status": "ok", "repaired": repaired, "edits": edits}
-
-    return {
-        "status": "missing",
-        "message": "jsonlint_plus.repair has no supported entry point "
-        "(expected repair(), repair_source(), or suggest()).",
-    }
-
-
-def normalize_repair(result: Any, original: str) -> tuple[str, list[Any]]:
-    """Normalize the several shapes a repair function may return."""
-    if result is None:
-        return original, []
-    if isinstance(result, str):
-        return result, []
-    if isinstance(result, dict):
-        text = result.get("repaired") or result.get("source") or result.get("text") or original
-        edits = result.get("edits") or result.get("fixes") or result.get("repairs") or []
-        return str(text), to_jsonable(edits)
-    if isinstance(result, (tuple, list)) and len(result) == 2:
-        text, edits = result
-        if isinstance(text, str):
-            return text, to_jsonable(edits)
-    return original, to_jsonable(result)
+    items = analyze_diagnostics(context["source"])["diagnostics"]
+    context["diagnostics"] = [
+        {**item, "stage": "JSONLint+", "severity": "error", "type": "Syntax error"}
+        for item in items
+    ]
+    return {"status": "ok", "suggestion_count": sum("fix" in item for item in items)}
 
 
 PIPELINE: list[dict[str, Any]] = [
     {"id": "lexer", "name": "Lexer", "run": run_lexer},
     {"id": "parser", "name": "Parser & AST", "run": run_parser},
-    {"id": "repair", "name": "Repair", "run": run_repair},
+    {"id": "repair", "name": "Repair suggestions", "run": run_repair},
 ]
 
 
@@ -269,8 +234,7 @@ def analyze(source: str) -> dict[str, Any]:
         "python_version": platform.python_version(),
         "package_version": package_version,
         "stages": stages,
-        "diagnostics": collect_diagnostics(stages),
-        "repaired": context.get("repaired"),
+        "diagnostics": context.get("diagnostics", collect_diagnostics(stages)),
     }
 
 

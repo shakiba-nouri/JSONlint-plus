@@ -285,3 +285,14 @@ pre.raw {
 .ast-count, .ast-location { color: var(--muted); font-size: 11px; }
 .ast-location { margin-left: 5px; }
 @media (max-width: 600px) { .ast-header { flex-direction: column; gap: 10px; } }
+
+/* ---------- repair suggestions ---------- */
+.apply-fix {
+  margin-top: 10px; padding: 7px 11px; border: 1px solid #4b719e;
+  background: #1b3046; color: #d2e6ff; font-weight: 600;
+}
+.apply-fix:hover { background: #25435f; }
+.apply-fix:disabled { opacity: .45; cursor: not-allowed; }
+.apply-fix:focus-visible, .verdict-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.diag-no-fix { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+.verdict-link { border: 0; background: transparent; color: #a5d6ff; text-decoration: underline; padding: 2px; }

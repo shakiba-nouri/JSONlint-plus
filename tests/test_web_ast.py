@@ -22,3 +22,26 @@ def test_web_invalid_json_has_no_ast():
     parser = next(stage for stage in report['stages'] if stage['id'] == 'parser')
     assert parser['status'] == 'error'
     assert 'ast' not in parser
+
+
+def test_web_reports_suggested_fix_from_shared_diagnostics():
+    source = '{"😀": 1,}'
+    report = server.analyze(source)
+    diagnostics = report['diagnostics']
+    assert len(diagnostics) == 1
+    fix = diagnostics[0]['fix']
+    assert fix['title'] == 'Remove trailing comma'
+    assert source[:fix['start']] + fix['text'] + source[fix['end']:] == '{"😀": 1}'
+    assert next(stage for stage in report['stages'] if stage['id'] == 'repair')['suggestion_count'] == 1
+
+
+def test_web_reports_no_fix_for_unsupported_error():
+    report = server.analyze('{"x": @}')
+    assert report['diagnostics']
+    assert 'fix' not in report['diagnostics'][0]
+
+
+def test_web_reports_multiple_suggestions():
+    report = server.analyze('{"a" 1, "b" 2}')
+    assert len(report['diagnostics']) == 2
+    assert all(item['fix']['title'] == 'Insert missing colon' for item in report['diagnostics'])

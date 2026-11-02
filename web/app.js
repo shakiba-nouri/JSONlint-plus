@@ -53,6 +53,8 @@ const runBtn = $("#run");
 const runtime = $("#runtime");
 
 let lastReport = null;
+let lastApplied = null;
+let requestId = 0;
 
 function updateStat() {
   const text = editor.value;
@@ -63,26 +65,35 @@ function updateStat() {
 function setEditor(text) {
   editor.value = text;
   updateStat();
+  markInputChanged();
 }
 
-editor.addEventListener("input", () => {
-  updateStat();
+function markInputChanged() {
   if (lastReport && editor.value !== lastReport.source) {
     astTree.replaceChildren();
     const message = document.createElement("p");
     message.className = "empty";
     message.textContent = "Input changed. Run JSONLint+ again to update the tree.";
     astTree.appendChild(message);
+    diagnosticsBox.querySelectorAll("[data-fix-index]").forEach(button => { button.disabled = true; });
   }
+}
+
+editor.addEventListener("input", () => {
+  lastApplied = null;
+  updateStat();
+  markInputChanged();
 });
 editor.addEventListener("keydown", (event) => {
   if (event.key === "Tab") {
     event.preventDefault();
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
+    lastApplied = null;
     editor.value = editor.value.slice(0, start) + "  " + editor.value.slice(end);
     editor.selectionStart = editor.selectionEnd = start + 2;
     updateStat();
+    markInputChanged();
   }
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
     event.preventDefault();
@@ -92,12 +103,14 @@ editor.addEventListener("keydown", (event) => {
 
 document.querySelectorAll("[data-sample]").forEach((btn) => {
   btn.addEventListener("click", () => {
+    lastApplied = null;
     setEditor(SAMPLES[btn.dataset.sample] ?? "");
     run();
   });
 });
 
 $("#clear").addEventListener("click", () => {
+  lastApplied = null;
   setEditor("");
   editor.focus();
 });
@@ -117,21 +130,24 @@ async function run() {
   runBtn.disabled = true;
   runBtn.innerHTML = '<span class="spinner"></span> Running\u2026';
   const started = performance.now();
+  const currentRequest = ++requestId;
+  const source = editor.value;
   try {
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-      body: editor.value,
+      body: source,
     });
     const report = await response.json();
+    if (!response.ok) throw new Error(report.error || `HTTP ${response.status}`);
+    if (currentRequest !== requestId || editor.value !== source) return;
     render(report);
   } catch (err) {
-    verdict.innerHTML = `<div class="box bad">Could not reach the server: ${escapeHtml(String(err))}</div>`;
+    if (currentRequest === requestId) verdict.innerHTML = `<div class="box bad">Could not reach the server: ${escapeHtml(String(err))}</div>`;
   } finally {
     const elapsed = performance.now() - started;
     runtime.textContent = `${elapsed.toFixed(1)} ms round-trip`;
-    runBtn.disabled = false;
-    runBtn.innerHTML = "&#9654; Run JSONLint+";
+    if (currentRequest === requestId) { runBtn.disabled = false; runBtn.innerHTML = "&#9654; Run JSONLint+"; }
   }
 }
 
@@ -170,7 +186,8 @@ function stageDetail(stage) {
   if (stage.status === "ok") {
     if (stage.id === "lexer") return `Produced ${stage.token_count} tokens.`;
     if (stage.id === "repair") {
-      return stage.repaired === reportSource() ? "No change to the file." : "Produced a repaired version.";
+      const count = stage.suggestion_count ?? 0;
+      return count === 1 ? "1 suggested fix available." : `${count} suggested fixes available.`;
     }
     return "Completed successfully.";
   }
@@ -208,7 +225,12 @@ function renderVerdict(report) {
   if (errors === 0) {
     verdict.innerHTML = `<div class="box ok">All active stages completed without syntax errors.</div>`;
   } else {
-    verdict.innerHTML = `<div class="box bad">${errors} diagnostic${errors > 1 ? "s" : ""} reported by the pipeline.</div>`;
+    const fixCount = report.diagnostics.filter(item => item.fix).length;
+    verdict.innerHTML = `<div class="box bad">${errors} diagnostic${errors > 1 ? "s" : ""} reported.${fixCount ? ` <button class="verdict-link" type="button">View ${fixCount} suggested fix${fixCount > 1 ? "es" : ""}</button>` : ""}</div>`;
+    verdict.querySelector(".verdict-link")?.addEventListener("click", () => {
+      document.querySelector('[data-tab="diagnostics"]').click();
+      diagnosticsBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   }
 }
 
@@ -336,33 +358,71 @@ $("#ast-collapse").addEventListener("click", () => astTree.querySelectorAll("li"
 function renderDiagnostics(report) {
   const list = report.diagnostics ?? [];
   diagCount.textContent = String(list.length);
+  diagnosticsBox.replaceChildren();
   if (list.length === 0) {
-    diagnosticsBox.innerHTML = `<p class="empty">No diagnostics.</p>`;
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "No diagnostics.";
+    diagnosticsBox.appendChild(empty);
     return;
   }
-  diagnosticsBox.innerHTML = list.map((d) => {
-    const loc = d.line != null
-      ? `<span class="diag-loc">line ${d.line}${d.column != null ? `, col ${d.column}` : ""}</span>`
-      : "";
-    return `
-      <div class="diag">
-        <div class="diag-title">${escapeHtml(d.type ?? "Error")}${loc}</div>
-        <p class="diag-desc">${escapeHtml(d.message)}</p>
-        <span class="diag-stage">${escapeHtml(d.stage)}</span>
-      </div>`;
-  }).join("");
+  list.forEach((diagnostic, index) => {
+    const item = document.createElement("div");
+    item.className = "diag";
+    const heading = document.createElement("div");
+    heading.className = "diag-title";
+    heading.textContent = diagnostic.type ?? "Error";
+    if (diagnostic.line != null) {
+      const location = document.createElement("span");
+      location.className = "diag-loc";
+      location.textContent = `line ${diagnostic.line}, col ${diagnostic.column ?? "?"}`;
+      heading.appendChild(location);
+    }
+    const message = document.createElement("p");
+    message.className = "diag-desc";
+    message.textContent = diagnostic.message;
+    item.append(heading, message);
+    if (diagnostic.fix) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "apply-fix";
+      button.dataset.fixIndex = String(index);
+      button.textContent = `Apply fix: ${diagnostic.fix.title}`;
+      button.addEventListener("click", () => applyFix(report, diagnostic.fix));
+      item.appendChild(button);
+    } else {
+      const note = document.createElement("p");
+      note.className = "diag-no-fix";
+      note.textContent = "No automatic fix available for this error.";
+      item.appendChild(note);
+    }
+    diagnosticsBox.appendChild(item);
+  });
+}
+
+function applyFix(report, fix) {
+  if (editor.value !== report.source) {
+    markInputChanged();
+    return;
+  }
+  // Python offsets count Unicode code points; JavaScript strings use UTF-16.
+  const characters = Array.from(report.source);
+  const after = characters.slice(0, fix.start).join("") + fix.text + characters.slice(fix.end).join("");
+  lastApplied = { before: report.source, after };
+  setEditor(after);
+  run();
 }
 
 function renderOutput(report) {
-  const before = report.source ?? "";
-  const repaired = report.repaired;
+  const applied = lastApplied && lastApplied.after === report.source ? lastApplied : null;
+  const before = applied?.before ?? report.source ?? "";
+  const repaired = applied?.after ?? null;
 
   if (repaired == null) {
     diffBox.innerHTML = `
       <div style="grid-column:1/-1" class="note">
-        <b>Repair stage not available yet.</b><br />
-        The file is shown unchanged. Implement <code>jsonlint_plus.repair</code>
-        to see a suggested version here.
+        <b>No fix applied yet.</b><br />
+        Choose a suggestion in Diagnostics to compare the text before and after.
       </div>
       ${pane("before", "Input", before, [])}`;
     return;
